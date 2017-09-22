@@ -25,4 +25,4 @@ Fully listed in requirements.txt but the main components right now are [Flask](h
 
 Questions?
 ----------
-Feel free to email me at will.acheson@device42.com
+Feel free to message me here on github and we can get connected through email. 
