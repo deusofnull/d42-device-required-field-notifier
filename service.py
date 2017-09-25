@@ -1,54 +1,57 @@
 from flask import Flask, request
-from checker import check_for_ip_fields
+from checker import *
 from alerter import alert_device_missing_fields
-import json, requests
+import json, requests, os, logging
 
-api_ip = 'https://10.42.2.117/api/1.0/'
+api_ip = os.environ.get('D42_API_IP')
+logging.basicConfig(filename='service.log',level=logging.WARNING)
 
 app = Flask(__name__)
 
+req_fields = {}
+req_fields['ip_addresses'] = ['ip', 'macaddress', 'subnet', 'subnet_id', 'type']
+req_fields['name'] = []
 
-@app.route('/')
-def home():
-    return 'home'
 
-@app.route('/new_webhook', methods=['GET', 'POST'])
-def device_added():
+# get full device information from API
+# GET /api/1.0/devices/id/<device-id#>/
+def get_device(device_id):
     global api_ip
-    if request.method == 'POST':
-        response = json.loads(request.data)
-        data = response['data']
-        device_id = data['id']
-
-        # get full device information from API
-        # GET /api/1.0/devices/id/<device-id#>/
-
-        device_id = data['id']
-        url = api_ip + 'devices/id/%s/' % device_id
+    url = api_ip + 'devices/id/%s/' % device_id
+    try:
         res = requests.get(
             url,
             auth=('admin', 'adm!nd42'),
             headers={'Accept': 'application/json'},
-            verify=False
+            verify=False # https call to localhost requires skipping verification
         )
+        return res
+    except Exception as e:
+        logging.exception("Error")
+        return e
+
+@app.route('/new_device', methods=['POST'])
+def device_added():
+    if request.method == 'POST':
+        req = json.loads(request.data)
+        data = req['data']
+        device_id = data['id']
+
+        res = get_device(device_id)
 
         device_data = json.loads(res.text)
 
-        print 'device_data ' + str(device_data)
+        check_result = check_ip_mac(device_data, device_id)
+        return str(check_result)
 
-        if 'ip_addresses' in device_data:
-            if len(device_data['ip_addresses']) > 0:
-                for addr in device_data['ip_addresses']:
-                    print '---*---'
-                    missing = check_for_ip_fields(addr)
-                    print 'missing fields: ' +  str(missing)
-                    if len(missing) > 0:
-                        print 'alert someone'
-                        alert_device_missing_fields(device_id, missing)
-            else:
-                missing = 'no ip addresses exist'
-                print 'alert someone'
-                alert_device_missing_fields(device_id, missing)
-        return 'got it'
     else:
         return 'POST only please'
+
+@app.route('/check_device', methods=['POST'])
+def check_device():
+    device_data = json.loads(request.data)
+    device_id = device_data['id']
+
+
+    check_result = check_ip_mac(device_data, device_id)
+    return str(check_result)
