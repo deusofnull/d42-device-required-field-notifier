@@ -8,11 +8,6 @@ logging.basicConfig(filename='service.log',level=logging.WARNING)
 
 app = Flask(__name__)
 
-req_fields = {}
-req_fields['ip_addresses'] = ['ip', 'macaddress', 'subnet', 'subnet_id', 'type']
-req_fields['name'] = []
-
-
 # get full device information from API
 # GET /api/1.0/devices/id/<device-id#>/
 def get_device(device_id):
